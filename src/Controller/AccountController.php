@@ -63,8 +63,8 @@ class AccountController extends AbstractController
                 $url = $this->baseUrl.'register/account/'.$token->getToken();
 
                 $email = (new Email())
-                    ->from('hello@example.com')
-                    ->to('you@example.com')
+                    ->from('model@model.com.br')
+                    ->to($user->getEmail())
                     //->cc('cc@example.com')
                     //->bcc('bcc@example.com')
                     //->replyTo('fabien@example.com')
