@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -61,18 +62,31 @@ class AccountController extends AbstractController
 
                 $url = $this->baseUrl.'register/account/'.$token->getToken();
 
-                $email = (new TemplatedEmail())
-                    ->from(new Address('model@model.com.br', 'Model'))
-                    ->to($user->getEmail())
-                    ->subject('Please Confirm your Email')
-                    ->htmlTemplate('registration/confirmation_email.html.twig')
-                    ->context(['url' => $url])
+                $email = (new Email())
+                    ->from('hello@example.com')
+                    ->to('you@example.com')
+                    //->cc('cc@example.com')
+                    //->bcc('bcc@example.com')
+                    //->replyTo('fabien@example.com')
+                    //->priority(Email::PRIORITY_HIGH)
+                    ->subject('Time for Symfony Mailer!')
+                    ->text('Sending emails is fun again!')
+                    ->html("<a href='$url'>Teste</a>")
                 ;
+
+
+                // $email = (new TemplatedEmail())
+                //     ->from(new Address('model@model.com.br', 'Model'))
+                //     ->to($user->getEmail())
+                //     ->subject('Please Confirm your Email')
+                //     ->htmlTemplate('registration/confirmation_email.html.twig')
+                //     ->context(['url' => $url])
+                // ;
 
                 $mailer->send($email);
     
                 $con->commit();
-        
+
                 return $this->json([
                     'message' => 'Conta criada com sucesso, um email foi enviado para confirmação.',
                     'status' => true
