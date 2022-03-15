@@ -21,7 +21,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 
 class AccountController extends AbstractController
 {
-    private $baseUrl = 'http://localhost:4200/';
+    private $baseUrl = 'http://balpas.com.br/';
 
     #[Route('/register/account', name: 'registe_account')]
     public function registerAccount(ManagerRegistry $doctrine, Request $request, DataFormat $df, UserPasswordHasherInterface $userPasswordHasher, MailerInterface $mailer): Response
