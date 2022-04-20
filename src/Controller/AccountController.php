@@ -48,6 +48,8 @@ class AccountController extends AbstractController
                 );
                 $user->setCreatedAt(new \DateTimeImmutable());
                 $user->setUpdatedAt(new \DateTimeImmutable());
+                $user->setIsActive(false);
+                $user->setIsResident(false);
                 $em->persist($user);
     
                 $em->flush();
@@ -60,20 +62,7 @@ class AccountController extends AbstractController
     
                 $em->flush();
 
-                $url = $this->baseUrl.'register/account/'.$token->getToken();
-
-                $email = (new Email())
-                    ->from('model@model.com.br')
-                    ->to($user->getEmail())
-                    //->cc('cc@example.com')
-                    //->bcc('bcc@example.com')
-                    //->replyTo('fabien@example.com')
-                    //->priority(Email::PRIORITY_HIGH)
-                    ->subject('Time for Symfony Mailer!')
-                    ->text('Sending emails is fun again!')
-                    ->html("<a href='$url'>Teste</a>")
-                ;
-
+                // $url = $this->baseUrl.'register/account/'.$token->getToken();
 
                 // $email = (new TemplatedEmail())
                 //     ->from(new Address('model@model.com.br', 'Model'))
@@ -83,7 +72,7 @@ class AccountController extends AbstractController
                 //     ->context(['url' => $url])
                 // ;
 
-                $mailer->send($email);
+                // $mailer->send($email);
     
                 $con->commit();
 
@@ -121,6 +110,53 @@ class AccountController extends AbstractController
                     'valid' => $user->isVerified(),
                 ]);
             } 
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/get/filtred/users', name: 'get_filtred_users')]
+    public function getFiltredUsers(ManagerRegistry $doctrine, SerializerInterface $serializer, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $user = $doctrine->getRepository(User::class)->getFiltredUsers($request->get('user'));
+
+            $serialized = $serializer->serialize($user,'json');
+
+            return JsonResponse::fromJsonString($serialized);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/get/filtred/valid/user', name: 'get_filtred_valid_user')]
+    public function getFiltredValidUser(ManagerRegistry $doctrine, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $request = $df->transformJsonBody($request);
+        
+        try {
+            $em = $doctrine->getManager();
+            $user = $em->getRepository(User::class)->findOneBy(['email' => $request->get('user')]);
+
+            if($user){
+                return $this->json([
+                    'valid' => true,
+                ]);
+            } else {
+                return $this->json([
+                    'valid' => false,
+                ]);
+            }
         } catch (\Exception $e) {
             return $this->json([
                 'message' => 'Erro no sistema',
@@ -319,6 +355,299 @@ class AccountController extends AbstractController
             ]);
         } catch (\Exception $e) {
             $con->rollback();
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/set/profile/image', name: 'set_profile_image')]
+    public function setProfileImage(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+
+            $profile = $em->getRepository(User::class)->find($user->getId());
+            $profile->setImage($request->get('image'));
+            $em->persist($profile);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Imagem alterada com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/delete/profile/image', name: 'delete_profile_image')]
+    public function deleteProfileImage(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $con = $doctrine->getConnection();
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+
+            $profile = $em->getRepository(User::class)->find($user->getId());
+            $profile->setImage(null);
+            $em->persist($profile);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Imagem excluida com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/update/user/info', name: 'update_user_info')]
+    public function updateUserInfo(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+            
+            $profile = $em->getRepository(User::class)->find($user->getId());
+            $profile->setName($request->get('name'));
+            $profile->setPhone($request->get('phone'));
+            $profile->setAddress($request->get('address'));
+            $em->persist($profile);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Informações atualizadas com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/update/user/password', name: 'update_user_password')]
+    public function updateUserPassword(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df, UserPasswordHasherInterface $userPasswordHasher): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+            
+            $profile = $em->getRepository(User::class)->find($user->getId());
+            $profile->setPassword(
+                $userPasswordHasher->hashPassword(
+                    $user,    
+                    $request->get('password')
+                )
+            );
+            $em->persist($profile);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Senha atualizada com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/admin/update/user/info', name: 'admin_update_user_info')]
+    public function adminUpdateUserInfo(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+            
+            $user = $em->getRepository(User::class)->find($request->get('id'));
+            $user->setName($request->get('name'));
+            $user->setPhone($request->get('phone'));
+            $user->setAddress($request->get('address'));
+            $em->persist($user);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Usuário atualizado com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/admin/update/user/type', name: 'admin_update_user_type')]
+    public function adminUpdateUserType(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df, UserPasswordHasherInterface $userPasswordHasher): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+
+            $user = $em->getRepository(User::class)->find($request->get('id'));
+            $user->setIsResident($request->get('isResident'));
+
+            $em->persist($user);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Usuário atualizado com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/admin/update/user/valid', name: 'admin_update_user_valid')]
+    public function adminUpdateUserValid(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df, UserPasswordHasherInterface $userPasswordHasher): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+
+            $user = $em->getRepository(User::class)->find($request->get('id'));
+            if ($user->getIsActive()) {
+                $user->setIsActive(false);
+                $message = 'Usuário desabilitado';
+            } else {
+                $user->setIsActive(true);
+                $message = 'Usuário habilitado';
+            }
+
+            $em->persist($user);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => $message,
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/admin/update/user/roles', name: 'admin_update_user_roles')]
+    public function adminUpdateUserRoles(ManagerRegistry $doctrine, UserInterface $user, Request $request, DataFormat $df, UserPasswordHasherInterface $userPasswordHasher): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $con = $doctrine->getConnection();
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $con->beginTransaction();
+            $em = $doctrine->getManager();
+
+            $user = $em->getRepository(User::class)->find($request->get('id'));
+            $user->setRoles($request->get('roles'));
+
+            $em->persist($user);
+            
+            $em->flush();
+            
+            $con->commit();
+            
+            return $this->json([
+                'message' => 'Usuário atualizado com sucesso',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/get/admin/users', name: 'get_admin_users')]
+    public function getAdminUsers(ManagerRegistry $doctrine, SerializerInterface $serializer, Request $request, DataFormat $df): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $user = $doctrine->getRepository(User::class)->getAdminUsers();
+
+            $serialized = $serializer->serialize($user,'json');
+
+            return JsonResponse::fromJsonString($serialized);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Erro no sistema',
+            ]);
+        }
+    }
+
+    #[Route('/api/get/admin/user/info/{id}', name: 'get_admin_user_info')]
+    public function getAdminUserInfo(ManagerRegistry $doctrine, SerializerInterface $serializer, Request $request, DataFormat $df, $id): Response
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $request = $df->transformJsonBody($request);
+
+        try {
+            $user = $doctrine->getRepository(User::class)->find($id);
+
+            $serialized = $serializer->serialize($user,'json');
+
+            return JsonResponse::fromJsonString($serialized);
+        } catch (\Exception $e) {
             return $this->json([
                 'message' => 'Erro no sistema',
             ]);

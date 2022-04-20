@@ -90,4 +90,52 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         ;
     }
     */
+
+    /**
+     * @return User[] Returns an array of user objects
+     */
+    public function getFiltredUsers($filter = null)
+    {
+        $qb = $this->createQueryBuilder('user');
+
+        $qb
+            ->select('
+                user.email AS email
+            ')
+            ->setMaxResults(3)
+        ;
+
+        if ($filter) {
+            $qb
+                ->where('user.email LIKE :filter')
+                ->setParameter('filter','%'.$filter.'%')
+            ;
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return User[] Returns an array of user objects
+     */
+    public function getAdminUsers($filter = null)
+    {
+        $qb = $this->createQueryBuilder('user');
+
+        $qb
+            ->select('
+                user
+            ')
+        ;
+
+        if ($filter) {
+            $qb
+                ->where('user.email LIKE :filter')
+                ->setParameter('filter','%'.$filter.'%')
+            ;
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
 }
